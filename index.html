@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Команда — Виртуальные комнаты</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        #app {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .login-section {
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .login-section h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .my-status {
+            background: #f5f5f5;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .status-available { background: #4caf50; }
+        .status-busy { background: #f44336; }
+        .status-in_room { background: #ff9800; }
+        .status-offline { background: #9e9e9e; }
+
+        .team-list {
+            padding: 20px 30px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .team-member {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .team-member:hover {
+            background: #f0f0f0;
+        }
+
+        .member-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+        }
+
+        .member-name {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .member-room-info {
+            font-size: 12px;
+            color: #999;
+            margin-top: 2px;
+        }
+
+        .btn-join {
+            background: #4caf50;
+            padding: 8px 20px;
+            font-size: 14px;
+        }
+
+        .btn-join:disabled {
+            background: #ccc;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            padding: 6px 15px;
+            font-size: 14px;
+        }
+
+        .btn-admin {
+            background: #ff9800;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-content h3 {
+            margin-bottom: 20px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .modal-buttons button {
+            flex: 1;
+        }
+
+        .video-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 2000;
+        }
+
+        .video-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .video-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2001;
+        }
+
+        .btn-leave {
+            background: #f44336;
+            padding: 15px 40px;
+            font-size: 18px;
+        }
+
+        .error-message {
+            color: #f44336;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .admin-badge {
+            background: #ff9800;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+
+        .admin-user {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+
+        .user-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            z-index: 3000;
+            min-width: 300px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .notification h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .notification p {
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .notification-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .notification-buttons button {
+            flex: 1;
+            padding: 10px;
+        }
+
+        .btn-accept {
+            background: #4caf50;
+        }
+
+        .btn-decline {
+            background: #f44336;
+        }
+
+        .permission-info {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 30px;
+            font-size: 14px;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Password Screen -->
+        <div v-if="!isAuthenticated" class="container">
+            <div class="header">
+                <h1>🔒 Виртуальные комнаты</h1>
+                <p>Вход только для команды</p>
+            </div>
+            <div class="login-section">
+                <h2>Введите пароль</h2>
+                <form @submit.prevent="checkPassword">
+                    <div class="form-group">
+                        <input
+                            type="password"
+                            v-model="passwordInput"
+                            placeholder="Пароль команды"
+                            required
+                        >
+                    </div>
+                    <button type="submit" :disabled="!passwordInput.trim()">
+                        Войти
+                    </button>
+                    <p v-if="passwordError" class="error-message">{{ passwordError }}</p>
+                </form>
+            </div>
+        </div>
+
+        <!-- Login Screen -->
+        <div v-else-if="isAuthenticated && !currentUser" class="container">
+            <div class="header">
+                <h1>🏢 Виртуальные комнаты</h1>
+                <p>Присоединитесь к команде</p>
+            </div>
+            <div class="login-section">
+                <h2>Введите ваше имя</h2>
+                <form @submit.prevent="login">
+                    <div class="form-group">
+                        <input
+                            type="text"
+                            v-model="userName"
+                            placeholder="Имя и фамилия"
+                            required
+                            minlength="2"
+                        >
+                    </div>
+                    <button type="submit" :disabled="!userName.trim()">
+                        Войти
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Main App -->
+        <div v-else class="container">
+            <div class="header">
+                <h1>🏢 Виртуальные комнаты</h1>
+                <p>Команда онлайн</p>
+            </div>
+
+            <div v-if="permissionStatus === 'prompt'" class="permission-info">
+                ⚠️ Для голосовых комнат нужен доступ к микрофону. Разрешение запросится при подключении к комнате.
+            </div>
+
+            <div class="my-status">
+                <div>
+                    <strong>{{ currentUser.name }}</strong>
+                    <span v-if="currentUser.isAdmin" class="admin-badge">ADMIN</span>
+                    <div class="status-badge">
+                        <span class="status-indicator" :class="`status-${currentUser.status}`"></span>
+                        {{ statusText(currentUser.status) }}
+                        <span v-if="currentUser.currentRoom" style="font-size: 12px; color: #999;">
+                            (в комнате {{ getRoomOwnerName(currentUser.currentRoom) }})
+                        </span>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button @click="showStatusModal = true" :disabled="currentUser.status === 'in_room'">
+                        Изменить статус
+                    </button>
+                    <button v-if="currentUser.isAdmin" @click="showAdminModal = true" class="btn-admin">
+                        Админка
+                    </button>
+                </div>
+            </div>
+
+            <div class="team-list">
+                <div v-if="otherMembers.length === 0" class="empty-state">
+                    <p>Пока никто не онлайн</p>
+                </div>
+
+                <div
+                    v-for="member in otherMembers"
+                    :key="member.id"
+                    class="team-member"
+                >
+                    <div class="member-info">
+                        <span class="status-indicator" :class="`status-${member.status}`"></span>
+                        <div>
+                            <div class="member-name">
+                                {{ member.name }}
+                                <span v-if="member.isAdmin" class="admin-badge">ADMIN</span>
+                            </div>
+                            <div v-if="member.currentRoom" class="member-room-info">
+                                В комнате {{ getRoomOwnerName(member.currentRoom) }}
+                            </div>
+                        </div>
+                    </div>
+                    <button
+                        v-if="member.status === 'available' || (member.status === 'in_room' && member.currentRoom)"
+                        @click="requestJoinRoom(member)"
+                        class="btn-join"
+                        :disabled="currentUser.status === 'in_room'"
+                    >
+                        {{ member.status === 'available' ? 'Присоединиться' : 'Присоединиться к комнате' }}
+                    </button>
+                    <button
+                        v-else
+                        disabled
+                        class="btn-join"
+                    >
+                        {{ member.status === 'busy' ? 'Занят' : 'Офлайн' }}
+                    </button>
+                </div>
+            </div>
+
+            <div style="padding: 20px 30px; border-top: 1px solid #e0e0e0;">
+                <button @click="logout" class="btn-secondary" style="width: 100%;">
+                    Выйти
+                </button>
+            </div>
+        </div>
+
+        <!-- Status Modal -->
+        <div v-if="showStatusModal" class="modal" @click.self="showStatusModal = false">
+            <div class="modal-content">
+                <h3>Изменить статус</h3>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button @click="changeStatus('available')" class="btn-join">
+                        🟢 Свободен
+                    </button>
+                    <button @click="changeStatus('busy')" style="background: #f44336;">
+                        🔴 Занят
+                    </button>
+                </div>
+                <div class="modal-buttons">
+                    <button @click="showStatusModal = false" class="btn-secondary">
+                        Отмена
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Modal -->
+        <div v-if="showAdminModal" class="modal" @click.self="showAdminModal = false">
+            <div class="modal-content">
+                <h3>🛠️ Админ-панель</h3>
+                <p style="margin-bottom: 15px; color: #666; font-size: 14px;">
+                    Управление пользователями команды
+                </p>
+
+                <div v-if="allUsers.length === 0" style="text-align: center; padding: 20px; color: #999;">
+                    Нет пользователей
+                </div>
+
+                <div v-for="user in allUsers" :key="user.id" class="admin-user">
+                    <div>
+                        <strong>{{ user.name }}</strong>
+                        <span v-if="user.isAdmin" class="admin-badge">ADMIN</span>
+                        <div style="font-size: 12px; color: #999;">
+                            {{ statusText(user.status) }}
+                        </div>
+                    </div>
+                    <div class="user-actions">
+                        <button
+                            v-if="!user.isAdmin"
+                            @click="makeAdmin(user)"
+                            class="btn-admin"
+                            style="padding: 6px 12px; font-size: 14px;"
+                        >
+                            Сделать админом
+                        </button>
+                        <button
+                            v-if="user.id !== currentUser.id"
+                            @click="deleteUser(user)"
+                            class="btn-danger"
+                        >
+                            Удалить
+                        </button>
+                    </div>
+                </div>
+
+                <div class="modal-buttons">
+                    <button @click="showAdminModal = false" class="btn-secondary">
+                        Закрыть
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Join Request Notification -->
+        <div v-if="incomingRequest" class="notification">
+            <h4>🔔 Запрос на подключение</h4>
+            <p><strong>{{ incomingRequest.userName }}</strong> хочет присоединиться к вашей комнате</p>
+            <div class="notification-buttons">
+                <button @click="acceptJoinRequest" class="btn-accept">
+                    Принять
+                </button>
+                <button @click="declineJoinRequest" class="btn-decline">
+                    Отклонить
+                </button>
+            </div>
+        </div>
+
+        <!-- Video Call -->
+        <div v-if="inCall" class="video-container">
+            <iframe
+                :src="callUrl"
+                class="video-frame"
+                allow="microphone; fullscreen; display-capture"
+            ></iframe>
+            <div class="video-controls">
+                <button @click="leaveCall" class="btn-leave">
+                    Покинуть комнату
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        // Firebase configuration - REPLACE WITH YOUR CONFIG
+        const firebaseConfig = {
+  apiKey: "AIzaSyAGduZmCt1qzX_B0YDXIbLG78gzM10O8jE",
+  authDomain: "roomy360-604ff.firebaseapp.com",
+  databaseURL: "https://roomy360-604ff-default-rtdb.firebaseio.com",
+  projectId: "roomy360-604ff",
+  storageBucket: "roomy360-604ff.firebasestorage.app",
+  messagingSenderId: "96561159668",
+  appId: "1:96561159668:web:1e768cc2f70d7520f16da1",
+  measurementId: "G-L92RF2P8JR"
+};
+
+        // Daily.co configuration - REPLACE WITH YOUR DOMAIN
+        const DAILY_DOMAIN = "kids360.daily.co";
+
+        // PASSWORD - CHANGE THIS!
+        const APP_PASSWORD = "roomy.360";
+
+        createApp({
+            data() {
+                return {
+                    passwordInput: '',
+                    passwordError: '',
+                    isAuthenticated: false,
+                    userName: '',
+                    currentUser: null,
+                    teamMembers: {},
+                    showStatusModal: false,
+                    showAdminModal: false,
+                    inCall: false,
+                    callUrl: '',
+                    db: null,
+                    incomingRequest: null,
+                    permissionStatus: 'prompt'
+                }
+            },
+            computed: {
+                otherMembers() {
+                    return Object.entries(this.teamMembers)
+                        .filter(([id]) => id !== this.currentUser?.id)
+                        .map(([id, data]) => ({ id, ...data }))
+                        .sort((a, b) => {
+                            // Available first
+                            if (a.status === 'available' && b.status !== 'available') return -1;
+                            if (a.status !== 'available' && b.status === 'available') return 1;
+                            // In room second
+                            if (a.status === 'in_room' && b.status !== 'in_room') return -1;
+                            if (a.status !== 'in_room' && b.status === 'in_room') return 1;
+                            return a.name.localeCompare(b.name);
+                        });
+                },
+                allUsers() {
+                    return Object.entries(this.teamMembers)
+                        .map(([id, data]) => ({ id, ...data }))
+                        .sort((a, b) => {
+                            if (a.isAdmin && !b.isAdmin) return -1;
+                            if (!a.isAdmin && b.isAdmin) return 1;
+                            return a.name.localeCompare(b.name);
+                        });
+                }
+            },
+            mounted() {
+                // Check if password was entered
+                const authenticated = sessionStorage.getItem('isAuthenticated');
+                if (authenticated === 'true') {
+                    this.isAuthenticated = true;
+                }
+
+                // Initialize Firebase
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                this.db = firebase.database();
+
+                // Listen to team members
+                this.db.ref('members').on('value', (snapshot) => {
+                    this.teamMembers = snapshot.val() || {};
+                });
+
+                // Check if user was logged in
+                const savedUser = localStorage.getItem('currentUser');
+                if (savedUser && this.isAuthenticated) {
+                    this.currentUser = JSON.parse(savedUser);
+                    this.updatePresence();
+                    this.listenForJoinRequests();
+                }
+
+                // Check media permissions
+                this.checkMediaPermissions();
+            },
+            methods: {
+                async checkMediaPermissions() {
+                    try {
+                        const result = await navigator.permissions.query({ name: 'camera' });
+                        this.permissionStatus = result.state;
+                    } catch (e) {
+                        this.permissionStatus = 'prompt';
+                    }
+                },
+                checkPassword() {
+                    if (this.passwordInput === APP_PASSWORD) {
+                        this.isAuthenticated = true;
+                        sessionStorage.setItem('isAuthenticated', 'true');
+                        this.passwordError = '';
+                    } else {
+                        this.passwordError = 'Неверный пароль';
+                        this.passwordInput = '';
+                    }
+                },
+                async login() {
+                    if (!this.userName.trim()) return;
+
+                    const snapshot = await this.db.ref('members').once('value');
+                    const existingMembers = snapshot.val();
+                    const isFirstUser = !existingMembers || Object.keys(existingMembers).length === 0;
+
+                    const userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    this.currentUser = {
+                        id: userId,
+                        name: this.userName.trim(),
+                        status: 'available',
+                        isAdmin: isFirstUser,
+                        currentRoom: null
+                    };
+
+                    localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+                    await this.updatePresence();
+                    this.listenForJoinRequests();
+                },
+                async updatePresence() {
+                    if (!this.currentUser) return;
+
+                    const memberRef = this.db.ref(`members/${this.currentUser.id}`);
+
+                    await memberRef.set({
+                        name: this.currentUser.name,
+                        status: this.currentUser.status,
+                        isAdmin: this.currentUser.isAdmin || false,
+                        currentRoom: this.currentUser.currentRoom || null,
+                        lastSeen: firebase.database.ServerValue.TIMESTAMP
+                    });
+
+                    memberRef.onDisconnect().remove();
+                },
+                listenForJoinRequests() {
+                    if (!this.currentUser) return;
+
+                    const requestsRef = this.db.ref(`joinRequests/${this.currentUser.id}`);
+
+                    requestsRef.on('child_added', (snapshot) => {
+                        const request = snapshot.val();
+                        if (request && !this.incomingRequest) {
+                            this.incomingRequest = {
+                                ...request,
+                                requestId: snapshot.key
+                            };
+                        }
+                    });
+                },
+                async requestJoinRoom(member) {
+                    // Check media permissions first
+                    try {
+                        await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                    } catch (err) {
+                        alert('Необходим доступ к микрофону для голосовых комнат.\n\nРазрешите доступ в настройках браузера.');
+                        return;
+                    }
+
+                    // Determine the actual room owner
+                    const roomOwnerId = member.currentRoom || member.id;
+
+                    // Send join request
+                    const requestRef = this.db.ref(`joinRequests/${roomOwnerId}`).push();
+                    await requestRef.set({
+                        userId: this.currentUser.id,
+                        userName: this.currentUser.name,
+                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                    });
+
+                    alert(`Запрос отправлен ${member.name}. Ожидайте подтверждения...`);
+                },
+                async acceptJoinRequest() {
+                    if (!this.incomingRequest) return;
+
+                    const requesterUserId = this.incomingRequest.userId;
+                    const roomName = this.currentUser.currentRoom || this.currentUser.id;
+
+                    // Create room URL
+                    this.callUrl = `https://${DAILY_DOMAIN}.daily.co/${roomName}`;
+                    this.inCall = true;
+
+                    // Update own status
+                    this.currentUser.status = 'in_room';
+                    this.currentUser.currentRoom = roomName;
+                    localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+                    await this.updatePresence();
+
+                    // Send approval to requester
+                    await this.db.ref(`joinApprovals/${requesterUserId}`).set({
+                        roomId: roomName,
+                        roomOwner: this.currentUser.name,
+                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                    });
+
+                    // Remove request
+                    await this.db.ref(`joinRequests/${this.currentUser.id}/${this.incomingRequest.requestId}`).remove();
+                    this.incomingRequest = null;
+                },
+                async declineJoinRequest() {
+                    if (!this.incomingRequest) return;
+
+                    await this.db.ref(`joinRequests/${this.currentUser.id}/${this.incomingRequest.requestId}`).remove();
+                    this.incomingRequest = null;
+                },
+                async changeStatus(status) {
+                    this.currentUser.status = status;
+                    if (status === 'available') {
+                        this.currentUser.currentRoom = null;
+                    }
+                    localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+                    await this.updatePresence();
+                    this.showStatusModal = false;
+                },
+                async logout() {
+                    if (this.currentUser) {
+                        await this.db.ref(`members/${this.currentUser.id}`).remove();
+                        await this.db.ref(`joinRequests/${this.currentUser.id}`).remove();
+                        localStorage.removeItem('currentUser');
+                        this.currentUser = null;
+                    }
+                },
+                async makeAdmin(user) {
+                    if (confirm(`Сделать ${user.name} администратором?`)) {
+                        await this.db.ref(`members/${user.id}/isAdmin`).set(true);
+
+                        if (user.id === this.currentUser.id) {
+                            this.currentUser.isAdmin = true;
+                            localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+                        }
+                    }
+                },
+                async deleteUser(user) {
+                    if (confirm(`Удалить пользователя ${user.name}?`)) {
+                        await this.db.ref(`members/${user.id}`).remove();
+                        await this.db.ref(`joinRequests/${user.id}`).remove();
+                    }
+                },
+                statusText(status) {
+                    const texts = {
+                        available: 'Свободен',
+                        busy: 'Занят',
+                        in_room: 'В комнате',
+                        offline: 'Офлайн'
+                    };
+                    return texts[status] || 'Неизвестно';
+                },
+                getRoomOwnerName(roomId) {
+                    const owner = Object.values(this.teamMembers).find(m => m.id === roomId || (m.currentRoom === roomId && m.status === 'in_room'));
+                    return owner ? owner.name : 'неизвестно';
+                },
+                async leaveCall() {
+                    this.inCall = false;
+                    this.callUrl = '';
+
+                    this.currentUser.status = 'available';
+                    this.currentUser.currentRoom = null;
+                    localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+                    await this.updatePresence();
+                }
+            },
+            beforeUnmount() {
+                if (this.currentUser) {
+                    this.db.ref(`members/${this.currentUser.id}`).remove();
+                    this.db.ref(`joinRequests/${this.currentUser.id}`).remove();
+                }
+            }
+        }).mount('#app');
+
+        // Listen for join approvals
+        window.addEventListener('load', () => {
+            const app = document.querySelector('#app').__vue_app__;
+            const vm = app._instance.proxy;
+
+            if (vm.currentUser) {
+                const approvalsRef = vm.db.ref(`joinApprovals/${vm.currentUser.id}`);
+
+                approvalsRef.on('value', async (snapshot) => {
+                    const approval = snapshot.val();
+                    if (approval && !vm.inCall) {
+                        // Join the room
+                        vm.callUrl = `https://${DAILY_DOMAIN}.daily.co/${approval.roomId}`;
+                        vm.inCall = true;
+
+                        // Update status
+                        vm.currentUser.status = 'in_room';
+                        vm.currentUser.currentRoom = approval.roomId;
+                        localStorage.setItem('currentUser', JSON.stringify(vm.currentUser));
+                        await vm.updatePresence();
+
+                        // Clear approval
+                        await approvalsRef.remove();
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
